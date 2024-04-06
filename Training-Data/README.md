@@ -1,4 +1,4 @@
-# Ultimate Drums Transformer Training Dataset Maker
+# Rock Melody Transformer Training Dataset Maker
 
 ***
 
