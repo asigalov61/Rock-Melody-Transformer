@@ -519,7 +519,7 @@ else:
 generate_improv_intro = False # @param {type:"boolean"}
 conditioning_type = "Tones-Times-Durations" # @param ["Tones", "Tones-Times", "Tones-Times-Durations", "Tones-Times-Durations-Pitches"]
 number_of_chords_to_generate = 128 # @param {type:"slider", min:4, max:8192, step:4}
-max_number_of_notes_per_chord = 12 # @param {type:"slider", min:1, max:16, step:1}
+max_number_of_notes_per_chord = 10 # @param {type:"slider", min:1, max:16, step:1}
 number_of_memory_tokens = 4096 # @param {type:"slider", min:32, max:8188, step:16}
 temperature = 0.9 # @param {type:"slider", min:0.1, max:1, step:0.05}
 
@@ -574,27 +574,50 @@ def generate_chords(input_seq,
 
     time = 0
 
-    ntime = next_time
+    if next_time < 256:
 
-    while (o < 2056 or o == 2080) and ncount < max_notes_limit and time < ntime:
-      with ctx:
-        out = model.generate(x[-num_memory_tokens:],
-                            1,
-                            temperature=temperature,
-                            return_prime=False,
-                            verbose=False)
+      ntime = next_time
 
-      o = out.tolist()[0][0]
+      while (o < 2056 or o == 2080) and ncount < max_notes_limit and time < ntime:
+        with ctx:
+          out = model.generate(x[-num_memory_tokens:],
+                              1,
+                              temperature=temperature,
+                              return_prime=False,
+                              verbose=False)
 
-      if 0 < o < 256:
-        ncount = 0
-        time += o
+        o = out.tolist()[0][0]
 
-      if 512 < o < 2048:
-        ncount += 1
+        if 0 < o < 256:
+          ncount = 0
+          time += o
 
-      if (o < 2056 or o == 2080) and time < ntime:
-        x = torch.cat((x, out), 1)
+        if 2048 <= o < 2056:
+          ncount += 1
+
+        if (o < 2056 or o == 2080) and time < ntime:
+          x = torch.cat((x, out), 1)
+
+    else:
+
+      while (o < 2056 or o == 2080) and ncount < max_notes_limit:
+        with ctx:
+          out = model.generate(x[-num_memory_tokens:],
+                              1,
+                              temperature=temperature,
+                              return_prime=False,
+                              verbose=False)
+
+        o = out.tolist()[0][0]
+
+        if 0 < o < 256:
+          ncount = 0
+
+        if 2048 <= o < 2056:
+          ncount += 1
+
+        if (o < 2056 or o == 2080):
+          x = torch.cat((x, out), 1)
 
     return x.tolist()[0][len(input_seq):]
 
@@ -652,7 +675,7 @@ while pidx < len(comp_tokens[sidx:number_of_chords_to_generate])-1:
   nc = comp_tokens[sidx:number_of_chords_to_generate][pidx+1]
 
   if cond_type > 3:
-    ntime = 255
+    ntime = 256
   else:
     ntime = nc[1]
 
