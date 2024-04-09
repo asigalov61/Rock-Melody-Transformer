@@ -108,7 +108,7 @@ print('=' * 70)
 
 full_path_to_models_dir = "/content/Rock-Melody-Transformer/Model"
 
-model_checkpoint_file_name = 'Rock_Melody_Transformer_Medium_Trained_Model_7323_steps_0.743_loss_0.791_acc.pth'
+model_checkpoint_file_name = 'Rock_Melody_Transformer_Medium_Trained_Model_21749_steps_0.7973_loss_0.7597_acc.pth'
 model_path = full_path_to_models_dir+'/'+model_checkpoint_file_name
 if os.path.isfile(model_path):
   print('Model already exists...')
@@ -143,7 +143,7 @@ PAD_IDX = 2081 # Models pad index
 model = TransformerWrapper(
     num_tokens = PAD_IDX+1,
     max_seq_len = SEQ_LEN,
-    attn_layers = Decoder(dim = 1024, depth = 16, heads = 16, attn_flash = True)
+    attn_layers = Decoder(dim = 1024, depth = 24, heads = 16, attn_flash = True)
     )
 
 model = AutoregressiveWrapper(model, ignore_index = PAD_IDX, pad_value=PAD_IDX)
