@@ -525,8 +525,8 @@ if len(out) != 0:
             pmel_tone = mel_tone
 
 detailed_stats = TMIDIX.Tegridy_ms_SONG_to_MIDI_Converter(song_f,
-                                                        output_signature = 'Ultimate Drums Transformer',
-                                                        output_file_name = '/content/Ultimate-Drums-Transformer-Composition',
+                                                        output_signature = 'Rock Melody Transformer',
+                                                        output_file_name = '/content/Rock-Melody-Transformer-Composition',
                                                         track_name='Project Los Angeles',
                                                         list_of_MIDI_patches=patches
                                                         )
