@@ -351,7 +351,7 @@ for i in range(number_of_batches_to_generate):
 
       TMIDIX.plot_ms_SONG(song_f, plot_title=fname)
 
-"""# (ROCK COMPOSITION GENERATION)"""
+"""# (ROCK MELODY COMPOSITION GENERATION)"""
 
 #@title Load Seed MIDI
 
@@ -515,8 +515,11 @@ else:
 #@markdown NOTE: You can stop the generation at any time to render partial results
 
 #@markdown Generation settings
+
+generate_improv_intro = False # @param {type:"boolean"}
+conditioning_type = "Tones-Times-Durations" # @param ["Tones", "Tones-Times", "Tones-Times-Durations", "Tones-Times-Durations-Pitches"]
 number_of_chords_to_generate = 128 # @param {type:"slider", min:4, max:8192, step:4}
-max_number_of_notes_per_chord = 10 # @param {type:"slider", min:1, max:16, step:1}
+max_number_of_notes_per_chord = 12 # @param {type:"slider", min:1, max:16, step:1}
 number_of_memory_tokens = 4096 # @param {type:"slider", min:32, max:8188, step:16}
 temperature = 0.9 # @param {type:"slider", min:0.1, max:1, step:0.05}
 
@@ -529,10 +532,39 @@ print('=' * 70)
 
 #===============================================================================
 
+def generate_intro(num_tokens=128,
+                   temperature=0.9
+                   ):
+
+  outy = [random.randint(12, 24)+2056] + [0]
+
+  inp = [outy] * 1
+
+  inp = torch.LongTensor(inp).cuda()
+
+  with ctx:
+    out = model.generate(inp,
+                          num_tokens,
+                          temperature=temperature,
+                          return_prime=True,
+                          verbose=True)
+
+
+  out1 = out.tolist()[0]
+
+  tidx = [i for i in range(len(out1[::-1])) if out1[::-1][i] < 256][0]
+
+  out2 = out1[:-tidx-2]
+
+  return out2
+
+#===============================================================================
+
 def generate_chords(input_seq,
-                   max_notes_limit = 10,
-                   num_memory_tokens = 4096,
-                   temperature=0.9):
+                    next_time=255,
+                    max_notes_limit = 10,
+                    num_memory_tokens = 4096,
+                    temperature=0.9):
 
     x = torch.tensor([input_seq] * 1, dtype=torch.long, device='cuda')
 
@@ -542,10 +574,7 @@ def generate_chords(input_seq,
 
     time = 0
 
-    ntime = input_seq[-2]
-
-    if ntime == 0:
-      ntime = 255
+    ntime = next_time
 
     while (o < 2056 or o == 2080) and ncount < max_notes_limit and time < ntime:
       with ctx:
@@ -575,22 +604,57 @@ print('Generating...')
 print('=' * 70)
 
 output = []
+first_note = True
+pidx = 0
+sidx = 0
 
 out = []
-
+tidxs = []
 dtime = 0
 
-first_note = True
+#===============================================================================
+
+if conditioning_type == 'Tones':
+  cond_type = 4
+
+elif conditioning_type == 'Tones-Times':
+  cond_type = 3
+
+elif conditioning_type == 'Tones-Times-Durations':
+  cond_type = 2
+
+elif conditioning_type == 'Tones-Times-Durations-Pitches':
+  cond_type = 1
+
+#===============================================================================
+
+if generate_improv_intro:
+  print('Generating intro...')
+  print('=' * 70)
+  output = generate_intro()
+  print('=' * 70)
+  print('Generating continaution...')
+  first_note = False
+  pidx = 1
+  cond_type = 4
+  sidx = 1
+  print('=' * 70)
+
+#===============================================================================
 
 torch.cuda.empty_cache()
 
-pidx = 0
-tidxs = []
+pbar = tqdm.tqdm(total=len(comp_tokens[sidx:number_of_chords_to_generate]))
 
-pbar = tqdm.tqdm(total=len(comp_tokens[:number_of_chords_to_generate]))
+while pidx < len(comp_tokens[sidx:number_of_chords_to_generate])-1:
 
-while pidx < len(comp_tokens[:number_of_chords_to_generate]):
-  c = comp_tokens[:number_of_chords_to_generate][pidx]
+  c = comp_tokens[sidx:number_of_chords_to_generate][pidx]
+  nc = comp_tokens[sidx:number_of_chords_to_generate][pidx+1]
+
+  if cond_type > 3:
+    ntime = 255
+  else:
+    ntime = nc[1]
 
   pidx += 1
   pbar.update(1)
@@ -606,14 +670,16 @@ while pidx < len(comp_tokens[:number_of_chords_to_generate]):
       dtime = sum([o for o in out if o < 256])
 
     if (c[0]-2056) < 12:
-      output.extend([c[0]+12, c[1]-dtime, c[2]])
+      output.extend([c[0]+12, c[1]-dtime, c[2], c[3], c[4]])
 
     else:
-      output.extend([c[0], c[1]-dtime, c[2]])
+      output.extend([c[0], c[1]-dtime, c[2], c[3], c[4]])
 
     if first_note:
-      output.extend([c[3]])
+      output = output[:-1]
       first_note = False
+    else:
+      output = output[:-cond_type]
 
     out = []
 
@@ -622,6 +688,7 @@ while pidx < len(comp_tokens[:number_of_chords_to_generate]):
     while not out and tries < max_number_of_notes_per_chord:
 
       out = generate_chords(output,
+                            next_time=ntime,
                             temperature=temperature,
                             max_notes_limit=max_number_of_notes_per_chord,
                             num_memory_tokens=number_of_memory_tokens
